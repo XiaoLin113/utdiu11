@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thu tiền điện</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    /* CSS CHUNG CHO GIAO DIỆN DI ĐỘNG */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      background: #f0f2f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+    }
+    .card {
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+    h3 {
+      text-align: center;
+      color: #333;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+    }
+    .input-group label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .input-group input[readonly] {
+      background-color: #f8f9fa;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    /* BASE STYLE CHO TẤT CẢ CÁC NÚT: Bo góc, font chữ */
+    .button-group button, .full-width-button {
+      border: none;
+      border-radius: 8px; /* Bo góc 8px */
+      font-weight: bold;
+      cursor: pointer;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    /* Style cho 3 nút Tìm/Quét/In */
+    .button-group button {
+      flex: 1; 
+      padding: 12px 8px; 
+      font-size: 14px; 
+    }
+    
+    /* Style mới cho nút Đẩy dữ liệu (Toàn chiều rộng) */
+    .full-width-button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px; 
+    }
+
+    /* Màu sắc */
+    .primary-button {
+      background-color: #007bff; /* Màu xanh dương */
+    }
+    .secondary-button {
+      background-color: #6c757d;
+    }
+    #inButton {
+      background-color: #28a745; /* Màu xanh lá (giống In) */
+    }
+    
+    #fileInput {
+      display: none;
+    }
+
+    /* CSS HIỂN THỊ HÓA ĐƠN TRÊN MÀN HÌNH (CÓ KHUNG) */
+    #hoaDon {
+      width: 100%;
+      min-height: 250px;
+      border: 2px solid #333; /* Khung hiển thị trên màn hình */
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #fafafa;
+      white-space: pre-wrap;
+      font-family: Arial, sans-serif; 
+      font-size: 14px;
+      line-height: 1.5;
+      box-sizing: border-box;
+    }
+    #hoaDon p { margin: 0; }
+    #reader {
+      width: 100%;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+    }
+
+    /* CSS ĐẶC BIỆT CHO IN ẤN (FIX LỖI) */
+    @media print {
+      /* Ẩn tất cả các thành phần */
+      body * {
+        visibility: hidden;
+      }
+      
+      /* Hiển thị khu vực in và mọi thứ bên trong nó */
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      
+      /* Đặt khu vực in lên đầu trang và cố định kích thước K57 */
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 58mm; /* Chiều rộng chuẩn cho K57 */
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        border: none !important; 
+      }
+      
+      /* Tối ưu hóa hóa đơn in */
+      #hoaDon {
+        border: none !important; /* Bỏ khung khi in */
+        padding: 5px; 
+        font-size: 8pt; /* Cỡ chữ nhỏ cho máy in nhiệt */
+        font-family: "Times New Roman", Times, serif;
+        line-height: 1.1; /* GIẢM KHOẢNG CÁCH DÒNG */
+        color: black;
+        width: 100%; 
+        box-sizing: border-box;
+        margin: 0;
+        white-space: pre-wrap; /* Quan trọng để giữ định dạng xuống dòng từ <pre> */
+      }
+
+      /* Đảm bảo mã QR in đúng kích thước và căn giữa */
+      #maQR {
+        text-align: center; /* Căn giữa mã QR */
+        margin-top: 5px; 
+      }
+      #maQR img {
+        width: 40mm !important; 
+        height: 40mm !important;
+        margin: 0 auto;
+        display: block;
+      }
+      /* Tăng độ đậm cho text quan trọng nếu cần */
+      #receipt-text {
+        font-weight: bold; 
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div class="card">
+    <button onclick="document.getElementById('fileInput').click()" class="primary-button full-width-button">
+      Đẩy dữ liệu Excel
+    </button>
+    <input type="file" id="fileInput" accept=".xlsx" onchange="docFileExcel(event)" />
+  </div>
+
+  <div class="card">
+    <h3>Tìm kiếm và thao tác</h3>
+    <div class="input-group">
+      <label for="maKH">Mã khách hàng</label>
+      <input id="maKH" list="danhSachKH" onkeydown="if(event.key==='Enter'){timKiemMaKH()}" placeholder="Nhập hoặc quét QR code"/>
+      <datalist id="danhSachKH"></datalist>
+    </div>
+    
+    <div class="button-group">
+      <button onclick="timKiemMaKH()" class="primary-button">🔍 Tìm</button>
+      <button id="startScanButton" onclick="startScanner()" class="secondary-button">📷 Quét QR</button>
+      <button id="inButton" onclick="inHoaDon()">🖨️ In Hóa Đơn</button>
+    </div>
+
+    <div id="reader" style="display:none; margin-top: 15px;"></div>
+  </div>
+
+  <div class="card">
+    <h3>Chi tiết hóa đơn</h3>
+    <div class="input-group">
+      <label for="tenKH">Tên KH</label>
+      <input id="tenKH" readonly/>
+    </div>
+    <div class="input-group">
+      <label for="soTien">Số tiền</label>
+      <input id="soTien" readonly/>
+    </div>
+    <div class="input-group">
+      <div id="print-area">
+          <div id="hoaDon">[Hóa đơn sẽ hiển thị tại đây]</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h3>Lịch sử thu tiền</h3>
+    <textarea id="lichSuThu" readonly rows="5"></textarea>
+    <div class="button-group">
+      <button onclick="xuatLichSu('thu')" class="secondary-button">Xuất lịch sử</button>
+      <button onclick="xuatLichSuExcel()" class="secondary-button">Xuất Excel</button>
+      <button onclick="xoaLichSu()" class="secondary-button">🗑️ Xóa lịch sử</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const bangGiaDien = [
+  { sanLuong: 55, donGia: 1984 },
+  { sanLuong: 52, donGia: 2050 },
+  { sanLuong: 103, donGia: 2380 },
+  { sanLuong: 103, donGia: 2998 },
+  { sanLuong: 103, donGia: 3350 },
+  { sanLuong: 287, donGia: 3460 }
+];
+
+let duLieu = [];
+let lichSuIn = JSON.parse(localStorage.getItem("lichSuIn")) || [];
+let lichSuThu = JSON.parse(localStorage.getItem("lichSuThu")) || [];
+let html5QrCode;
+
+function formatVND(number) { return Number(number).toLocaleString('vi-VN') + ' ₫'; }
+function removeAccents(str) { return str.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+
+function tinhSanLuongTuSoTien(soTien) {
+  let tongSanLuong = 0;
+  let tienConLai = soTien;
+  for (let i = 0; i < bangGiaDien.length; i++) {
+    const bac = bangGiaDien[i];
+    const tienBac = bac.sanLuong * bac.donGia;
+    if (tienConLai >= tienBac) {
+      tongSanLuong += bac.sanLuong;
+      tienConLai -= tienBac;
+    } else {
+      const sanLuongConLai = Math.floor(tienConLai / bac.donGia);
+      tongSanLuong += sanLuongConLai;
+      break;
+    }
+  }
+  return tongSanLuong;
+}
+
+function timKiemMaKH() {
+  const maKH = document.getElementById("maKH").value.trim();
+  const ketQua = duLieu.filter(row => String(row.MA_KHTT).trim() === maKH);
+  
+  if (ketQua.length > 0) {
+    const kh = ketQua[0];
+    document.getElementById("tenKH").value = kh.TEN_KHTT;
+    document.getElementById("soTien").value = kh.TONG_NOP;
+    const sanLuong = tinhSanLuongTuSoTien(Number(kh.TONG_NOP));
+    hienThiHoaDon(kh.MA_KHTT, kh.TEN_KHTT, kh.TONG_NOP, sanLuong);
+  } else {
+    document.getElementById("hoaDon").innerText = "[Không tìm thấy khách hàng]";
+    document.getElementById("tenKH").value = "";
+    document.getElementById("soTien").value = "";
+  }
+}
+
+function hienThiHoaDon(maKH, tenKH, soTien, sanLuong) {
+  const nguoiThu = "Diu 0985181042";
+  const phi = 2000;
+  const tieuDe = "THU TIEN DIEN";
+  const tong = Number(soTien) + phi;
+  const now = new Date();
+  const ngay = now.toLocaleDateString('vi-VN');
+  const gio = now.toTimeString().split(' ')[0].slice(0, 8);
+  const thoiGian = `Ngay ${ngay}  Gio ${gio}`;
+
+  // BỎ DẤU TẤT CẢ CHUỖI TRƯỚC KHI IN
+  const noiDungText = `
+${removeAccents(tieuDe)}
+Ma KH: ${removeAccents(maKH)}
+Ten KH: ${removeAccents(tenKH)}
+TONG: ${formatVND(tong)}
+Nguoi thu: ${removeAccents(nguoiThu)}
+
+            DA NHAN TIEN
+${removeAccents(thoiGian)}
+  `.trim();
+
+  const noiDung = `
+    <pre id="receipt-text"
+         style="font-family: 'Times New Roman', Times, serif; font-size: 9pt; margin:0; line-height: 1.1; text-align: left;">
+${noiDungText}
+    </pre>
+    <div id="maQR" style="text-align:center; margin-top:5px;"></div>
+  `;
+  document.getElementById("hoaDon").innerHTML = noiDung;
+
+  const barcodeContainer = document.getElementById("maQR");
+  barcodeContainer.innerHTML = "";
+  new QRCode(barcodeContainer, {
+    text: maKH,
+    width: 80,
+    height: 80
+  });
+}
+
+function inHoaDon() {
+  const maKH = document.getElementById("maKH").value.trim();
+  const tenKH = document.getElementById("tenKH").value.trim();
+  const soTien = Number(document.getElementById("soTien").value || 0);
+  if (!maKH || !tenKH || !soTien) {
+    alert("⚠️ Bạn cần tìm đúng mã KH trước khi in!");
+    return;
+  }
+  const tong = soTien + 2000;
+  const thoiGian = new Date().toLocaleString();
+  
+  lichSuIn.push({ maKH, tenKH, soTien: tong, thoiGian });
+  lichSuThu.push({ maKH, tenKH, soTien: tong, thoiGian });
+  localStorage.setItem("lichSuIn", JSON.stringify(lichSuIn));
+  localStorage.setItem("lichSuThu", JSON.stringify(lichSuThu));
+  capNhatLichSu();
+
+  setTimeout(() => { window.print(); }, 500);
+}
+
+function capNhatLichSu() {
+  const thuText = lichSuThu.map(item => `(${item.thoiGian}) ${item.maKH} - ${item.tenKH}: ${formatVND(item.soTien)}`).join("\n");
+  document.getElementById("lichSuThu").value = thuText;
+}
+
+function xuatLichSu(loai) {
+  const duLieu = loai === 'in' ? lichSuIn : lichSuThu;
+  const text = duLieu.map(item => `(${item.thoiGian}) ${item.maKH} - ${item.tenKH}: ${item.soTien}`).join("\n");
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `lich_su_${loai}.txt`;
+  a.click();
+}
+
+function xuatLichSuExcel() {
+  const wb = XLSX.utils.book_new();
+  const wsThu = XLSX.utils.json_to_sheet(lichSuThu);
+  XLSX.utils.book_append_sheet(wb, wsThu, "Lich Su Thu");
+  XLSX.writeFile(wb, "lich_su_thu.xlsx");
+}
+
+function docFileExcel(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    duLieu = XLSX.utils.sheet_to_json(sheet);
+    duLieu = duLieu.map(row => {
+      return {
+        MA_KHTT: String(row.MA_KHTT || "").trim().toUpperCase().replace(/(\.0)$/, ""),
+        TEN_KHTT: String(row.TEN_KHTT || "").trim(),
+        TONG_NOP: String(row.TONG_NOP || "").replace(/[^0-9]/g, "")
+      };
+    });
+    const dataList = document.getElementById("danhSachKH");
+    dataList.innerHTML = "";
+    duLieu.forEach(row => {
+      const option = document.createElement("option");
+      option.value = row.MA_KHTT;
+      dataList.appendChild(option);
+    });
+    alert("Đẩy dữ liệu thành công!");
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function xoaLichSu() {
+  if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?")) {
+    localStorage.removeItem("lichSuIn");
+    localStorage.removeItem("lichSuThu");
+    lichSuIn = [];
+    lichSuThu = [];
+    capNhatLichSu();
+  }
+}
+
+function startScanner() {
+  const qrCodeRegionId = "reader";
+  const scannerContainer = document.getElementById(qrCodeRegionId);
+  const startScanButton = document.getElementById("startScanButton");
+
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop().then(() => {
+      scannerContainer.style.display = 'none';
+      startScanButton.textContent = '📷 Quét QR';
+    }).catch(err => {
+      console.error("Lỗi khi dừng máy quét: ", err);
+    });
+    return;
+  }
+
+  scannerContainer.style.display = 'block';
+  startScanButton.textContent = 'Dừng quét';
+
+  html5QrCode = new Html5Qrcode(qrCodeRegionId);
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras.length > 0) {
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText, decodedResult) => {
+          document.getElementById("maKH").value = decodedText;
+          timKiemMaKH();
+          html5QrCode.stop().then(() => {
+            scannerContainer.style.display = 'none';
+            startScanButton.textContent = '📷 Quét QR';
+          });
+        },
+        (errorMessage) => {}
+      ).catch(err => {
+        alert("Không thể bật camera. Vui lòng kiểm tra quyền truy cập.");
+        scannerContainer.style.display = 'none';
+        startScanButton.textContent = '📷 Quét QR';
+      });
+    } else {
+      alert("Không tìm thấy camera trên thiết bị của bạn.");
+      scannerContainer.style.display = 'none';
+      startScanButton.textContent = '📷 Quét QR';
+    }
+  }).catch(err => {
+    alert("Lỗi khi truy cập camera.");
+    scannerContainer.style.display = 'none';
+    startScanButton.textContent = '📷 Quét QR';
+  });
+}
+
+window.onload = capNhatLichSu;
+</script>
+</body>
+</html>
