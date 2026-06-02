@@ -284,7 +284,7 @@ function timKiemMaKH() {
 
 function hienThiHoaDon(maKH, tenKH, soTien, sanLuong) {
   const nguoiThu = "Diu 0985181042";
-  const phi = 2000;
+  const phi = 3000;
   const tieuDe = "THU TIEN DIEN";
   const tong = Number(soTien) + phi;
   const now = new Date();
@@ -330,7 +330,7 @@ function inHoaDon() {
     alert("⚠️ Bạn cần tìm đúng mã KH trước khi in!");
     return;
   }
-  const tong = soTien + 2000;
+  const tong = soTien + 3000;
   const thoiGian = new Date().toLocaleString();
   
   lichSuIn.push({ maKH, tenKH, soTien: tong, thoiGian });
